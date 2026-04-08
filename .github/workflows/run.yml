@@ -31,4 +31,7 @@ jobs:
 
       # ===== RUN SCRIPT =====
       - name: Run script
+      env:
+    TWILIO_SID: ${{ secrets.TWILIO_SID }}
+    TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script.py
