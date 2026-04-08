@@ -4,12 +4,13 @@ import os
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from twilio.rest import Client
 
 # ===== CONFIG =====
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
 
-# ===== DATA HIJRIAH (ACUAN ISBAT + KOREKSI) =====
+# ===== DATA HIJRIAH (ACUAN ISBAT) =====
 hijri_month_start = {
     "2026-03-21": 4,
     "2026-04-19": 5,
@@ -26,20 +27,55 @@ hijri_month_start = {
     "2027-03-10": 4,
 }
 
-# ===== AUTH =====
+# ===== AUTH GOOGLE =====
 creds = None
-
 if os.path.exists('token.json'):
     creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 else:
-    flow = InstalledAppFlow.from_client_secrets_file(
-        'credentials.json', SCOPES)
+    flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
     creds = flow.run_local_server(port=0)
-
     with open('token.json', 'w') as token:
         token.write(creds.to_json())
 
 service = build('calendar', 'v3', credentials=creds)
+
+# ===== TWILIO =====
+def send_whatsapp(message):
+    client = Client(
+        os.getenv("TWILIO_SID"),
+        os.getenv("TWILIO_TOKEN")
+    )
+
+    client.messages.create(
+        from_='whatsapp:+14155238886',
+        body=message,
+        to='whatsapp:+6281347084840'  # GANTI NOMOR KAMU
+    )
+
+# ===== FORMAT PESAN =====
+def format_message(title, tipe):
+    if tipe == "malam":
+        return f"""🌙 *Reminder Puasa Besok*
+
+Assalamu’alaikum 😊
+
+Besok insyaAllah:
+📌 *{title}*
+
+Yuk niat & siapkan sahur 🙏
+Semoga Allah mudahkan ibadah kita 🤲
+"""
+    else:
+        return f"""🌄 *Waktu Sahur*
+
+Assalamu’alaikum 😊
+
+Hari ini:
+📌 *{title}*
+
+Yuk sahur 🍽️
+Semoga puasanya lancar & berkah 🤲
+"""
 
 # ===== FUNGSI HIJRIAH =====
 def get_hijri_day(date):
@@ -55,6 +91,23 @@ def get_hijri_month(date):
         if date >= start_date:
             return month
     return None
+
+# ===== CREATE EVENT =====
+created = set()
+
+def create_event(date, title):
+    key = (date, title)
+    if key in created:
+        return
+    created.add(key)
+
+    event = {
+        'summary': title,
+        'start': {'date': date.isoformat()},
+        'end': {'date': (date + datetime.timedelta(days=1)).isoformat()},
+    }
+
+    service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
 
 # ===== HAPUS EVENT LAMA =====
 def clear_old_events():
@@ -73,32 +126,31 @@ def clear_old_events():
                 eventId=event['id']
             ).execute()
 
-# ===== CREATE EVENT =====
-created = set()
+# ===== CEK PUASA BESOK =====
+def get_tomorrow_fasting(date):
+    next_day = date + datetime.timedelta(days=1)
 
-def create_event(date, title):
-    key = (date, title)
-    if key in created:
-        return
-    created.add(key)
+    hijri_day = get_hijri_day(next_day)
+    hijri_month = get_hijri_month(next_day)
 
-    event = {
-        'summary': title,
-        'start': {'date': date.isoformat()},
-        'end': {'date': (date + datetime.timedelta(days=1)).isoformat()},
-        'reminders': {
-            'useDefault': False,
-            'overrides': [
-                {'method': 'popup', 'minutes': 600},
-                {'method': 'email', 'minutes': 600},
-            ],
-        },
-    }
+    events = []
 
-    service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
+    if next_day.weekday() in [0, 3]:
+        events.append("Puasa Senin/Kamis")
+
+    if hijri_day in [13, 14, 15]:
+        events.append("Puasa Ayyamul Bidh")
+
+    if hijri_month == 6 and hijri_day == 9:
+        events.append("Puasa Arafah")
+
+    if hijri_month == 7 and hijri_day == 10:
+        events.append("Puasa Asyura")
+
+    return events
 
 # ===== MAIN =====
-print("🔄 Update kalender dimulai...")
+print("🔄 Update kalender...")
 
 clear_old_events()
 
@@ -110,24 +162,36 @@ for i in range(365):
     hijri_day = get_hijri_day(date)
     hijri_month = get_hijri_month(date)
 
-    # Senin Kamis
     if date.weekday() in [0, 3]:
         create_event(date, "Puasa Senin/Kamis")
 
-    # Ayyamul Bidh
     if hijri_day in [13, 14, 15]:
         create_event(date, "Puasa Ayyamul Bidh")
 
-    # Arafah
     if hijri_month == 6 and hijri_day == 9:
         create_event(date, "Puasa Arafah")
 
-    # Asyura
     if hijri_month == 7 and hijri_day == 10:
         create_event(date, "Puasa Asyura")
 
-    # Nisfu Syaban
     if hijri_month == 2 and hijri_day == 15:
         create_event(date, "Nisfu Sya'ban")
 
-print("✅ Kalender berhasil di-update otomatis!")
+# ===== WHATSAPP TRIGGER =====
+now = datetime.datetime.now()
+today = datetime.date.today()
+
+events = get_tomorrow_fasting(today)
+
+if events:
+    text = "\n".join(events)
+
+    # kirim malam
+    if now.hour == 21:
+        send_whatsapp(format_message(text, "malam"))
+
+    # kirim sahur
+    if now.hour == 3:
+        send_whatsapp(format_message(text, "sahur"))
+
+print("✅ Selesai semua!")
