@@ -1,0 +1,34 @@
+name: Auto Kalender Puasa
+
+on:
+  schedule:
+    - cron: "0 18 * * *"   # jalan tiap hari jam 01:00 WIB
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # ===== CREATE FILE DARI SECRET =====
+      - name: Create credentials.json
+        run: echo '${{ secrets.CREDENTIALS_JSON }}' > credentials.json
+
+      - name: Create token.json
+        run: echo '${{ secrets.TOKEN_JSON }}' > token.json
+
+      # ===== RUN SCRIPT =====
+      - name: Run script
+        run: python script.py
