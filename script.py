@@ -4,7 +4,6 @@ import requests
 import time
 
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from twilio.rest import Client
 
@@ -12,6 +11,10 @@ from twilio.rest import Client
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
 LOG_FILE = "sent_log.txt"
+
+# ===== AUTH GOOGLE =====
+creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+service = build('calendar', 'v3', credentials=creds)
 
 # ===== DATA HIJRIAH =====
 hijri_month_start = {
@@ -30,35 +33,40 @@ hijri_month_start = {
     "2027-03-10": 4,
 }
 
-# ===== AUTH =====
-creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-service = build('calendar', 'v3', credentials=creds)
-
-# ===== WHATSAPP =====
+# ===== WHATSAPP MULTI =====
 def send_whatsapp(message):
     client = Client(
         os.getenv("TWILIO_SID"),
         os.getenv("TWILIO_TOKEN")
     )
-    client.messages.create(
-        from_='whatsapp:+14155238886',
-        body=message,
-        to='whatsapp:+6281347084840'
-    )
+
+    numbers = [
+        "whatsapp:+628XXXXXXXXXX",
+        # tambah nomor lain di sini
+    ]
+
+    for number in numbers:
+        try:
+            msg = client.messages.create(
+                from_='whatsapp:+14155238886',
+                body=message,
+                to=number
+            )
+            print("WA SENT:", number, msg.sid)
+        except Exception as e:
+            print("WA ERROR:", number, e)
 
 # ===== FORMAT =====
 def format_message(title, tipe):
     if tipe == "malam":
         return f"""🌙 Reminder Puasa Besok
 
-Besok:
 {title}
 
-Jangan lupa sahur ya 😊"""
+Jangan lupa sahur 😊"""
     else:
         return f"""🌄 Waktu Sahur
 
-Hari ini:
 {title}
 
 Semangat puasa 💪"""
@@ -80,13 +88,13 @@ def get_hijri_month(date):
 
 # ===== IMSAK =====
 def get_imsak_time(date):
-    url = f"http://api.aladhan.com/v1/timingsByCity?city=Pontianak&country=Indonesia&method=2&date={date.strftime('%d-%m-%Y')}"
+    url = f"http://api.aladhan.com/v1/timingsByCity?city=Pontianak&country=Indonesia&date={date.strftime('%d-%m-%Y')}"
     res = requests.get(url).json()
     fajr = res['data']['timings']['Fajr']
     h, m = map(int, fajr.split(":"))
     return datetime.datetime.combine(date, datetime.time(h, m))
 
-# ===== LOG =====
+# ===== ANTI DOUBLE WA =====
 def already_sent(key):
     if not os.path.exists(LOG_FILE):
         return False
@@ -97,14 +105,28 @@ def mark_sent(key):
     with open(LOG_FILE, "a") as f:
         f.write(key + "\n")
 
-# ===== CREATE EVENT =====
-created = set()
+# ===== CEK EVENT ADA =====
+def event_exists(date, title):
+    start = datetime.datetime.combine(date, datetime.time.min).isoformat() + "Z"
+    end = datetime.datetime.combine(date, datetime.time.max).isoformat() + "Z"
 
+    events = service.events().list(
+        calendarId=CALENDAR_ID,
+        timeMin=start,
+        timeMax=end,
+        singleEvents=True
+    ).execute()
+
+    for event in events.get('items', []):
+        if event.get('summary') == title:
+            return True
+
+    return False
+
+# ===== CREATE EVENT =====
 def create_event(date, title):
-    key = (date, title)
-    if key in created:
+    if event_exists(date, title):
         return
-    created.add(key)
 
     event = {
         'summary': title,
@@ -113,9 +135,9 @@ def create_event(date, title):
     }
 
     service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-    time.sleep(0.1)  # anti rate limit
+    time.sleep(0.1)
 
-# ===== PUASA BESOK =====
+# ===== CEK PUASA =====
 def get_tomorrow_fasting(date):
     next_day = date + datetime.timedelta(days=1)
 
@@ -136,6 +158,9 @@ def get_tomorrow_fasting(date):
     if hijri_month == 7 and hijri_day == 10:
         events.append("Puasa Asyura")
 
+    if hijri_month == 2 and hijri_day == 15:
+        events.append("Nisfu Sya'ban")
+
     return events
 
 # ===== MAIN =====
@@ -143,7 +168,7 @@ print("🚀 Update mulai...")
 
 today = datetime.date.today()
 
-# 🔥 hanya generate 60 hari (hemat API)
+# hanya 60 hari (hemat API)
 for i in range(60):
     date = today + datetime.timedelta(days=i)
 
@@ -162,6 +187,9 @@ for i in range(60):
     if hijri_month == 7 and hijri_day == 10:
         create_event(date, "Puasa Asyura")
 
+    if hijri_month == 2 and hijri_day == 15:
+        create_event(date, "Nisfu Sya'ban")
+
 # ===== WHATSAPP =====
 now = datetime.datetime.now()
 events = get_tomorrow_fasting(today)
@@ -175,7 +203,7 @@ if events:
         send_whatsapp(format_message(text, "malam"))
         mark_sent(key1)
 
-    # sahur real
+    # sahur
     imsak = get_imsak_time(today)
     sahur = imsak - datetime.timedelta(minutes=30)
 
