@@ -2,7 +2,7 @@ name: Auto Kalender Puasa
 
 on:
   schedule:
-    - cron: "0 18 * * *"   # jalan tiap hari jam 01:00 WIB
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
