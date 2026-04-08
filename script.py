@@ -1,5 +1,6 @@
 import datetime
 import os
+import requests
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,6 +10,7 @@ from twilio.rest import Client
 # ===== CONFIG =====
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
+LOG_FILE = "sent_log.txt"
 
 # ===== DATA HIJRIAH (ACUAN ISBAT) =====
 hijri_month_start = {
@@ -39,7 +41,7 @@ else:
 
 service = build('calendar', 'v3', credentials=creds)
 
-# ===== TWILIO =====
+# ===== WHATSAPP =====
 def send_whatsapp(message):
     client = Client(
         os.getenv("TWILIO_SID"),
@@ -77,7 +79,7 @@ Yuk sahur 🍽️
 Semoga puasanya lancar & berkah 🤲
 """
 
-# ===== FUNGSI HIJRIAH =====
+# ===== HIJRIAH =====
 def get_hijri_day(date):
     for start_str in sorted(hijri_month_start.keys(), reverse=True):
         start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
@@ -92,7 +94,26 @@ def get_hijri_month(date):
             return month
     return None
 
-# ===== CREATE EVENT =====
+# ===== IMSAK REAL =====
+def get_imsak_time(date):
+    url = f"http://api.aladhan.com/v1/timingsByCity?city=Pontianak&country=Indonesia&method=2&date={date.strftime('%d-%m-%Y')}"
+    res = requests.get(url).json()
+    fajr = res['data']['timings']['Fajr']
+    hour, minute = map(int, fajr.split(":"))
+    return datetime.datetime.combine(date, datetime.time(hour, minute))
+
+# ===== ANTI DOUBLE =====
+def already_sent(key):
+    if not os.path.exists(LOG_FILE):
+        return False
+    with open(LOG_FILE, "r") as f:
+        return key in f.read()
+
+def mark_sent(key):
+    with open(LOG_FILE, "a") as f:
+        f.write(key + "\n")
+
+# ===== EVENT =====
 created = set()
 
 def create_event(date, title):
@@ -109,7 +130,7 @@ def create_event(date, title):
 
     service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
 
-# ===== HAPUS EVENT LAMA =====
+# ===== CLEAR EVENT =====
 def clear_old_events():
     now = datetime.datetime.utcnow().isoformat() + 'Z'
     events = service.events().list(
@@ -177,7 +198,7 @@ for i in range(365):
     if hijri_month == 2 and hijri_day == 15:
         create_event(date, "Nisfu Sya'ban")
 
-# ===== WHATSAPP TRIGGER =====
+# ===== WA TRIGGER =====
 now = datetime.datetime.now()
 today = datetime.date.today()
 
@@ -186,12 +207,21 @@ events = get_tomorrow_fasting(today)
 if events:
     text = "\n".join(events)
 
-    # kirim malam
-    if now.hour == 21:
+    # ===== MALAM =====
+    key_malam = f"{today}-malam"
+    if now.hour == 21 and not already_sent(key_malam):
         send_whatsapp(format_message(text, "malam"))
+        mark_sent(key_malam)
 
-    # kirim sahur
-    if now.hour == 3:
-        send_whatsapp(format_message(text, "sahur"))
+    # ===== SAHUR REAL =====
+    imsak_time = get_imsak_time(today)
+    sahur_time = imsak_time - datetime.timedelta(minutes=30)
+
+    key_sahur = f"{today}-sahur"
+
+    if abs((now - sahur_time).total_seconds()) < 600:
+        if not already_sent(key_sahur):
+            send_whatsapp(format_message(text, "sahur"))
+            mark_sent(key_sahur)
 
 print("✅ Selesai semua!")
