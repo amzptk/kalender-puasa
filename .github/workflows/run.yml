@@ -16,22 +16,20 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
-      # ===== CREATE FILE DARI SECRET =====
       - name: Create credentials.json
         run: echo '${{ secrets.CREDENTIALS_JSON }}' > credentials.json
 
       - name: Create token.json
         run: echo '${{ secrets.TOKEN_JSON }}' > token.json
 
-      # ===== RUN SCRIPT =====
       - name: Run script
-      env:
-    TWILIO_SID: ${{ secrets.TWILIO_SID }}
-    TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
+        env:
+          TWILIO_SID: ${{ secrets.TWILIO_SID }}
+          TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script.py
