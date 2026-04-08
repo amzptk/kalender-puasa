@@ -187,3 +187,4 @@ if events:
             mark_sent(key2)
 
 print("✅ Done!")
+send_whatsapp("TEST WA BERHASIL 🚀")
