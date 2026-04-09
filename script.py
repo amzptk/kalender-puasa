@@ -212,9 +212,6 @@ if events:
             mark_sent(key2)
 
 print("✅ Done!")
-print("🚀 Update mulai...")
-
-clean_old_events()   # 🔥 TAMBAH INI
 
 today = datetime.date.today()
 def clean_old_events():
@@ -245,3 +242,8 @@ def clean_old_events():
                 pass
 
     print(f"🗑️ Dihapus: {deleted}")
+   print("🚀 Update mulai...")
+
+clean_old_events()   # ✅ sekarang aman
+
+today = datetime.date.today()
