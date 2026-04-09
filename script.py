@@ -242,7 +242,7 @@ def clean_old_events():
                 pass
 
     print(f"🗑️ Dihapus: {deleted}")
-   print("🚀 Update mulai...")
+print("🚀 Update mulai...")
 
 clean_old_events()   # ✅ sekarang aman
 
