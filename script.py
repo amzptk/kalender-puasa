@@ -41,7 +41,7 @@ def send_whatsapp(message):
     )
 
     numbers = [
-        "whatsapp:+628XXXXXXXXXX",  # ganti nomor kamu
+        "whatsapp:+6281347084840",  # ganti nomor kamu
         # tambah nomor lain di sini
     ]
 
