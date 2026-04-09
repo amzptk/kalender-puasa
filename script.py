@@ -78,6 +78,36 @@ def create_event(date, title, color):
 
     service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
     time.sleep(0.1)
+def clean_legacy_events():
+    print("🧹 Hapus event lama (Senin/Kamis)...")
+
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+
+    events = service.events().list(
+        calendarId=CALENDAR_ID,
+        timeMin=now,
+        maxResults=2500,
+        singleEvents=True
+    ).execute()
+
+    deleted = 0
+
+    for event in events.get('items', []):
+        title = event.get('summary', '')
+
+        # 🔥 hanya hapus yang lama
+        if title == "Puasa Senin/Kamis":
+            try:
+                service.events().delete(
+                    calendarId=CALENDAR_ID,
+                    eventId=event['id']
+                ).execute()
+                deleted += 1
+            except:
+                pass
+
+    print(f"🗑️ Dihapus legacy: {deleted}")
+clean_legacy_events()
 
 # ================= MAIN =================
 print("🚀 Update mulai...")
@@ -108,4 +138,3 @@ for i in range(60):
         create_event(date, "Nisfu Sya'ban", COLOR["nisfu"])
 
 print("✅ Done!")
-clean_old_events()
