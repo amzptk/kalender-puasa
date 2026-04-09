@@ -144,8 +144,11 @@ def get_tomorrow_fasting(date):
 
     events = []
 
-    if next_day.weekday() in [0, 3]:
-        events.append("Puasa Senin/Kamis")
+    if date.weekday() == 0:
+    create_event(date, "Puasa Senin", COLOR["senin_kamis"])
+
+    if date.weekday() == 3:
+    create_event(date, "Puasa Kamis", COLOR["senin_kamis"])
 
     if h_day in [13, 14, 15]:
         events.append("Puasa Ayyamul Bidh")
@@ -242,3 +245,8 @@ def clean_old_events():
                 pass
 
     print(f"🗑️ Dihapus: {deleted}")
+print("🚀 Update mulai...")
+
+clean_old_events()
+
+today = datetime.date.today()
