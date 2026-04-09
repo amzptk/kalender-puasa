@@ -7,16 +7,16 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from twilio.rest import Client
 
-# ===== CONFIG =====
+# ================= CONFIG =================
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
 LOG_FILE = "sent_log.txt"
 
-# ===== AUTH GOOGLE =====
+# ================= AUTH =================
 creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 service = build('calendar', 'v3', credentials=creds)
 
-# ===== DATA HIJRIAH =====
+# ================= DATA HIJRIAH =================
 hijri_month_start = {
     "2026-03-21": 4,
     "2026-04-19": 5,
@@ -33,7 +33,16 @@ hijri_month_start = {
     "2027-03-10": 4,
 }
 
-# ===== WHATSAPP =====
+# ================= WARNA =================
+COLOR = {
+    "senin_kamis": "9",     # biru
+    "ayyamul_bidh": "10",   # hijau
+    "arafah": "11",         # merah
+    "asyura": "3",          # ungu
+    "nisfu": "5"            # kuning
+}
+
+# ================= WHATSAPP =================
 def send_whatsapp(message):
     client = Client(
         os.getenv("TWILIO_SID"),
@@ -41,8 +50,7 @@ def send_whatsapp(message):
     )
 
     numbers = [
-        "whatsapp:+6281347084840",  # ganti nomor kamu
-        # tambah nomor lain di sini
+        "whatsapp:+6281347084840",  # ganti
     ]
 
     for number in numbers:
@@ -52,11 +60,11 @@ def send_whatsapp(message):
                 body=message,
                 to=number
             )
-            print("WA SENT:", number, msg.sid)
+            print("WA SENT:", number)
         except Exception as e:
             print("WA ERROR:", number, e)
 
-# ===== FORMAT =====
+# ================= FORMAT =================
 def format_message(title, tipe):
     if tipe == "malam":
         return f"""🌙 *Reminder Puasa Besok*
@@ -71,22 +79,22 @@ Jangan lupa sahur 😊"""
 
 Semangat puasa 💪"""
 
-# ===== HIJRIAH =====
+# ================= HIJRIAH =================
 def get_hijri_day(date):
     for start_str in sorted(hijri_month_start.keys(), reverse=True):
-        start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
-        if date >= start_date:
-            return (date - start_date).days + 1
+        start = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+        if date >= start:
+            return (date - start).days + 1
     return None
 
 def get_hijri_month(date):
     for start_str, month in sorted(hijri_month_start.items(), reverse=True):
-        start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
-        if date >= start_date:
+        start = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+        if date >= start:
             return month
     return None
 
-# ===== IMSAK =====
+# ================= IMSAK =================
 def get_imsak_time(date):
     url = f"http://api.aladhan.com/v1/timingsByCity?city=Pontianak&country=Indonesia&date={date.strftime('%d-%m-%Y')}"
     res = requests.get(url).json()
@@ -94,7 +102,7 @@ def get_imsak_time(date):
     h, m = map(int, fajr.split(":"))
     return datetime.datetime.combine(date, datetime.time(h, m))
 
-# ===== ANTI DOUBLE WA =====
+# ================= ANTI DOUBLE WA =================
 def already_sent(key):
     if not os.path.exists(LOG_FILE):
         return False
@@ -105,106 +113,99 @@ def mark_sent(key):
     with open(LOG_FILE, "a") as f:
         f.write(key + "\n")
 
-# ===== CREATE EVENT ANTI DUPLIKAT =====
-def create_event(date, title):
-    unique_id = f"{title}-{date.isoformat()}"
+# ================= CREATE EVENT =================
+def create_event(date, title, color):
+    uid = f"{title}-{date.isoformat()}"
 
-    events = service.events().list(
+    existing = service.events().list(
         calendarId=CALENDAR_ID,
-        privateExtendedProperty=f"uid={unique_id}"
+        privateExtendedProperty=f"uid={uid}"
     ).execute()
 
-    if events.get('items'):
+    if existing.get('items'):
         return
 
     event = {
         'summary': title,
         'start': {'date': date.isoformat()},
         'end': {'date': (date + datetime.timedelta(days=1)).isoformat()},
-        'extendedProperties': {
-            'private': {
-                'uid': unique_id
-            }
-        }
+        'colorId': color,
+        'extendedProperties': {'private': {'uid': uid}}
     }
 
     service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
     time.sleep(0.1)
 
-# ===== CEK PUASA =====
+# ================= CEK PUASA =================
 def get_tomorrow_fasting(date):
     next_day = date + datetime.timedelta(days=1)
-
-    hijri_day = get_hijri_day(next_day)
-    hijri_month = get_hijri_month(next_day)
+    h_day = get_hijri_day(next_day)
+    h_month = get_hijri_month(next_day)
 
     events = []
 
     if next_day.weekday() in [0, 3]:
         events.append("Puasa Senin/Kamis")
 
-    if hijri_day in [13, 14, 15]:
+    if h_day in [13, 14, 15]:
         events.append("Puasa Ayyamul Bidh")
 
-    if hijri_month == 6 and hijri_day == 9:
+    if h_month == 6 and h_day == 9:
         events.append("Puasa Arafah")
 
-    if hijri_month == 7 and hijri_day == 10:
+    if h_month == 7 and h_day == 10:
         events.append("Puasa Asyura")
 
-    if hijri_month == 2 and hijri_day == 15:
+    if h_month == 2 and h_day == 15:
         events.append("Nisfu Sya'ban")
 
     return events
 
-# ===== MAIN =====
+# ================= MAIN =================
 print("🚀 Update mulai...")
 
 today = datetime.date.today()
 
-# hanya 60 hari (hemat API)
+# generate 60 hari
 for i in range(60):
     date = today + datetime.timedelta(days=i)
-
-    hijri_day = get_hijri_day(date)
-    hijri_month = get_hijri_month(date)
+    h_day = get_hijri_day(date)
+    h_month = get_hijri_month(date)
 
     if date.weekday() in [0, 3]:
-        create_event(date, "Puasa Senin/Kamis")
+        create_event(date, "Puasa Senin/Kamis", COLOR["senin_kamis"])
 
-    if hijri_day in [13, 14, 15]:
-        create_event(date, "Puasa Ayyamul Bidh")
+    if h_day in [13, 14, 15]:
+        create_event(date, "Puasa Ayyamul Bidh", COLOR["ayyamul_bidh"])
 
-    if hijri_month == 6 and hijri_day == 9:
-        create_event(date, "Puasa Arafah")
+    if h_month == 6 and h_day == 9:
+        create_event(date, "Puasa Arafah", COLOR["arafah"])
 
-    if hijri_month == 7 and hijri_day == 10:
-        create_event(date, "Puasa Asyura")
+    if h_month == 7 and h_day == 10:
+        create_event(date, "Puasa Asyura", COLOR["asyura"])
 
-    if hijri_month == 2 and hijri_day == 15:
-        create_event(date, "Nisfu Sya'ban")
+    if h_month == 2 and h_day == 15:
+        create_event(date, "Nisfu Sya'ban", COLOR["nisfu"])
 
-# ===== WHATSAPP =====
+# ================= WHATSAPP =================
 now = datetime.datetime.now()
 events = get_tomorrow_fasting(today)
 
 if events:
     text = "\n".join(events)
 
-    # ===== MALAM (WINDOW) =====
+    # MALAM (21:00-21:09)
     key1 = f"{today}-malam"
-
     if now.hour == 21 and now.minute < 10:
         if not already_sent(key1):
             send_whatsapp(format_message(text, "malam"))
             mark_sent(key1)
 
-    # ===== SAHUR =====
+    # SAHUR
     imsak = get_imsak_time(today)
     sahur = imsak - datetime.timedelta(minutes=30)
 
     key2 = f"{today}-sahur"
-
     if abs((now - sahur).total_seconds()) < 600:
         if not already_sent(key2):
             send_whatsapp(format_message(text, "sahur"))
