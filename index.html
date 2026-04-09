@@ -1,25 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard Ibadah</title>
-    <style>
-        body { font-family: Arial; background: #111; color: #0f0; padding: 20px; }
-        h1 { color: #0ff; }
-        .box { background: #222; padding: 10px; margin: 10px 0; border-radius: 10px; }
-    </style>
+  <title>Dashboard Ibadah Pro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; background: #0d1117; color: #00ff9c; padding: 20px; }
+    h1 { color: #00eaff; }
+    .box { background: #161b22; padding: 15px; margin: 10px 0; border-radius: 10px; }
+    canvas { background: #fff; border-radius: 10px; padding: 10px; }
+  </style>
 </head>
 <body>
 
-<h1>📊 Dashboard Ibadah</h1>
+<h1>📊 Dashboard Ibadah PRO</h1>
 
 <div class="box">
-    <h3>Status</h3>
-    <p id="status">Loading...</p>
+  <h3>Status</h3>
+  <p id="status">Loading...</p>
+  <p id="lastUpdate"></p>
 </div>
 
 <div class="box">
-    <h3>Log Aktivitas</h3>
-    <pre id="log"></pre>
+  <h3>Statistik</h3>
+  <p>Total WA: <span id="wa">0</span></p>
+  <p>Total Event: <span id="event">0</span></p>
+</div>
+
+<div class="box">
+  <h3>Grafik Aktivitas</h3>
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="box">
+  <h3>Log Aktivitas</h3>
+  <pre id="log"></pre>
 </div>
 
 <script>
@@ -27,10 +41,44 @@ fetch('log.txt')
 .then(res => res.text())
 .then(data => {
     document.getElementById("log").innerText = data;
-    document.getElementById("status").innerText = "✅ Aktif";
+
+    let lines = data.trim().split("\n");
+
+    document.getElementById("status").innerText = "🟢 Aktif";
+    document.getElementById("lastUpdate").innerText = "Last update: " + new Date().toLocaleTimeString();
+
+    let wa = 0, event = 0;
+    let timeMap = {};
+
+    lines.forEach(line => {
+        if(line.includes("| WA |")) wa++;
+        if(line.includes("| EVENT |")) event++;
+
+        let jam = line.split(" ")[1]?.substring(0,2);
+        if(jam){
+            timeMap[jam] = (timeMap[jam] || 0) + 1;
+        }
+    });
+
+    document.getElementById("wa").innerText = wa;
+    document.getElementById("event").innerText = event;
+
+    let labels = Object.keys(timeMap);
+    let values = Object.values(timeMap);
+
+    new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Aktivitas per Jam',
+                data: values
+            }]
+        }
+    });
 })
 .catch(() => {
-    document.getElementById("status").innerText = "❌ Error";
+    document.getElementById("status").innerText = "🔴 Error";
 });
 </script>
 
