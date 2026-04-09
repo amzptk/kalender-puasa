@@ -107,7 +107,6 @@ def clean_legacy_events():
                 pass
 
     print(f"🗑️ Dihapus legacy: {deleted}")
-clean_legacy_events()
 
 # ================= MAIN =================
 print("🚀 Update mulai...")
