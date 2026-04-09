@@ -167,3 +167,9 @@ for i in range(60):
         create_event(date, "Nisfu Sya'ban", COLOR["nisfu"])
 
 print("✅ Done!")
+def write_log(status, info):
+    with open("log.txt", "a") as f:
+        f.write(f"{datetime.datetime.now()} | {status} | {info}\n")
+write_log("INFO", "Script jalan")
+write_log("WA", f"Kirim ke {num}")
+write_log("ERROR", str(e))
