@@ -1,4 +1,4 @@
-name: Auto Kalender Puasa
+name: Auto Kalender Puasa & Sholat
 
 on:
   schedule:
@@ -28,13 +28,14 @@ jobs:
       - name: Create token.json
         run: echo '${{ secrets.TOKEN_JSON }}' > token.json
 
-      - name: Run script
+      - name: Run script (Puasa)
         env:
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script.py
-      - name: Run Sholat Script
-         env:
+
+      - name: Run script (Sholat)
+        env:
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script_sholat.py
