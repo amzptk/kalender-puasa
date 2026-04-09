@@ -7,6 +7,12 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from twilio.rest import Client
 
+print("🚀 Update mulai...")
+
+clean_old_events()
+
+today = datetime.date.today()
+
 # ================= CONFIG =================
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
