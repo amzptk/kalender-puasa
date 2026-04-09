@@ -1,0 +1,124 @@
+import datetime
+import time
+import requests
+import os
+import random
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from twilio.rest import Client
+
+# ================= CONFIG =================
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+CALENDAR_ID = 'primary'
+
+CITY = "Pontianak"
+COUNTRY = "Indonesia"
+
+# WA
+TWILIO_FROM = 'whatsapp:+14155238886'
+NUMBERS = [
+    "whatsapp:+6281347084840"
+]
+
+# ================= AUTH =================
+creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+service = build('calendar', 'v3', credentials=creds)
+
+# ================= RETRY =================
+def safe_execute(func, retry=5):
+    for i in range(retry):
+        try:
+            return func()
+        except Exception as e:
+            wait = (2 ** i) + random.random()
+            print("Retry...", wait, e)
+            time.sleep(wait)
+    return None
+
+# ================= GET JADWAL =================
+def get_prayer_times(date):
+    url = f"http://api.aladhan.com/v1/timingsByCity?city={CITY}&country={COUNTRY}&date={date.strftime('%d-%m-%Y')}"
+    res = requests.get(url).json()
+    return res['data']['timings']
+
+# ================= CREATE EVENT =================
+def create_event(date, name, time_str):
+    uid = f"{name}-{date}"
+
+    existing = safe_execute(lambda: service.events().list(
+        calendarId=CALENDAR_ID,
+        privateExtendedProperty=f"uid={uid}"
+    ).execute())
+
+    if existing and existing.get('items'):
+        return
+
+    hour, minute = map(int, time_str.split(":"))
+
+    start_dt = datetime.datetime.combine(date, datetime.time(hour, minute))
+
+    event = {
+        'summary': name,
+        'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'Asia/Jakarta'},
+        'end': {'dateTime': (start_dt + datetime.timedelta(minutes=10)).isoformat(), 'timeZone': 'Asia/Jakarta'},
+        'extendedProperties': {'private': {'uid': uid}}
+    }
+
+    safe_execute(lambda: service.events().insert(
+        calendarId=CALENDAR_ID,
+        body=event
+    ).execute())
+
+    time.sleep(random.uniform(0.2, 0.4))
+
+# ================= WHATSAPP =================
+def send_wa(msg):
+    client = Client(
+        os.getenv("TWILIO_SID"),
+        os.getenv("TWILIO_TOKEN")
+    )
+
+    for num in NUMBERS:
+        try:
+            client.messages.create(
+                from_=TWILIO_FROM,
+                body=msg,
+                to=num
+            )
+            print("WA sent:", num)
+        except Exception as e:
+            print("WA error:", e)
+
+# ================= MAIN =================
+print("🚀 Update jadwal sholat...")
+
+today = datetime.date.today()
+times = get_prayer_times(today)
+
+# mapping waktu
+jadwal = {
+    "Subuh": times["Fajr"],
+    "Dzuhur": times["Dhuhr"],
+    "Ashar": times["Asr"],
+    "Maghrib": times["Maghrib"],
+    "Isya": times["Isha"]
+}
+
+# ===== CREATE CALENDAR =====
+for name, t in jadwal.items():
+    create_event(today, f"Sholat {name}", t)
+
+# ===== WA REMINDER =====
+now = datetime.datetime.now()
+
+for name, t in jadwal.items():
+    hour, minute = map(int, t.split(":"))
+    waktu = datetime.datetime.combine(today, datetime.time(hour, minute))
+
+    reminder = waktu - datetime.timedelta(minutes=10)
+
+    if abs((now - reminder).total_seconds()) < 300:
+        send_wa(f"⏰ 10 menit lagi masuk waktu sholat {name} di Pontianak")
+
+print("✅ Done!")
