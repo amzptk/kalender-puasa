@@ -33,7 +33,7 @@ hijri_month_start = {
     "2027-03-10": 4,
 }
 
-# ===== WHATSAPP MULTI =====
+# ===== WHATSAPP =====
 def send_whatsapp(message):
     client = Client(
         os.getenv("TWILIO_SID"),
@@ -41,7 +41,7 @@ def send_whatsapp(message):
     )
 
     numbers = [
-        "whatsapp:+628XXXXXXXXXX",
+        "whatsapp:+628XXXXXXXXXX",  # ganti nomor kamu
         # tambah nomor lain di sini
     ]
 
@@ -59,13 +59,13 @@ def send_whatsapp(message):
 # ===== FORMAT =====
 def format_message(title, tipe):
     if tipe == "malam":
-        return f"""🌙 Reminder Puasa Besok
+        return f"""🌙 *Reminder Puasa Besok*
 
 {title}
 
 Jangan lupa sahur 😊"""
     else:
-        return f"""🌄 Waktu Sahur
+        return f"""🌄 *Waktu Sahur*
 
 {title}
 
@@ -105,33 +105,27 @@ def mark_sent(key):
     with open(LOG_FILE, "a") as f:
         f.write(key + "\n")
 
-# ===== CEK EVENT ADA =====
-def event_exists(date, title):
-    start = datetime.datetime.combine(date, datetime.time.min).isoformat() + "Z"
-    end = datetime.datetime.combine(date, datetime.time.max).isoformat() + "Z"
+# ===== CREATE EVENT ANTI DUPLIKAT =====
+def create_event(date, title):
+    unique_id = f"{title}-{date.isoformat()}"
 
     events = service.events().list(
         calendarId=CALENDAR_ID,
-        timeMin=start,
-        timeMax=end,
-        singleEvents=True
+        privateExtendedProperty=f"uid={unique_id}"
     ).execute()
 
-    for event in events.get('items', []):
-        if event.get('summary') == title:
-            return True
-
-    return False
-
-# ===== CREATE EVENT =====
-def create_event(date, title):
-    if event_exists(date, title):
+    if events.get('items'):
         return
 
     event = {
         'summary': title,
         'start': {'date': date.isoformat()},
         'end': {'date': (date + datetime.timedelta(days=1)).isoformat()},
+        'extendedProperties': {
+            'private': {
+                'uid': unique_id
+            }
+        }
     }
 
     service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
@@ -197,13 +191,15 @@ events = get_tomorrow_fasting(today)
 if events:
     text = "\n".join(events)
 
-    # malam
+    # ===== MALAM (WINDOW) =====
     key1 = f"{today}-malam"
-    if now.hour == 21 and not already_sent(key1):
-        send_whatsapp(format_message(text, "malam"))
-        mark_sent(key1)
 
-    # sahur
+    if now.hour == 21 and now.minute < 10:
+        if not already_sent(key1):
+            send_whatsapp(format_message(text, "malam"))
+            mark_sent(key1)
+
+    # ===== SAHUR =====
     imsak = get_imsak_time(today)
     sahur = imsak - datetime.timedelta(minutes=30)
 
