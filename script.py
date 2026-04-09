@@ -6,7 +6,12 @@ import random
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from twilio.rest import Client
+
+# ================= LOG =================
+def write_log(status, info):
+    with open("log.txt", "a", encoding="utf-8") as f:
+        waktu = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{waktu} | {status} | {info}\n")
 
 # ================= CONFIG =================
 SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -32,12 +37,14 @@ def safe_execute(func, max_retry=5):
             return func()
         except Exception as e:
             print(f"⚠️ Error: {e}")
+            write_log("ERROR", str(e))
 
             wait = (2 ** attempt) + random.uniform(0, 1)
             print(f"⏳ Retry {attempt+1}/{max_retry} dalam {round(wait,2)} detik...")
             time.sleep(wait)
 
     print("❌ Gagal setelah retry")
+    write_log("ERROR", "Gagal setelah retry")
     return None
 
 # ================= DATA HIJRIAH =================
@@ -82,7 +89,7 @@ def create_event(date, title, color):
     ).execute())
 
     if not existing:
-        print("⚠️ Skip (API error)")
+        write_log("ERROR", f"Gagal cek event {title}")
         return
 
     if existing.get('items'):
@@ -101,45 +108,13 @@ def create_event(date, title, color):
         body=event
     ).execute())
 
-    # delay random biar tidak kena limit
+    write_log("EVENT", f"{title} - {date}")
+
     time.sleep(random.uniform(0.2, 0.4))
-
-# ================= CLEAN LEGACY =================
-def clean_legacy_events():
-    print("🧹 Hapus event lama (Senin/Kamis)...")
-
-    now = datetime.datetime.utcnow().isoformat() + 'Z'
-
-    events = safe_execute(lambda: service.events().list(
-        calendarId=CALENDAR_ID,
-        timeMin=now,
-        maxResults=2500,
-        singleEvents=True
-    ).execute())
-
-    if not events:
-        return
-
-    deleted = 0
-
-    for event in events.get('items', []):
-        title = event.get('summary', '')
-
-        if title == "Puasa Senin/Kamis":
-            safe_execute(lambda: service.events().delete(
-                calendarId=CALENDAR_ID,
-                eventId=event['id']
-            ).execute())
-            deleted += 1
-
-    print(f"🗑️ Dihapus legacy: {deleted}")
-# clean_legacy_events()
 
 # ================= MAIN =================
 print("🚀 Update mulai...")
-
-# ⚠️ Aktifkan hanya 1x kalau mau bersihin
-# clean_legacy_events()
+write_log("INFO", "Script jalan")
 
 today = datetime.date.today()
 
@@ -167,9 +142,4 @@ for i in range(60):
         create_event(date, "Nisfu Sya'ban", COLOR["nisfu"])
 
 print("✅ Done!")
-def write_log(status, info):
-    with open("log.txt", "a") as f:
-        f.write(f"{datetime.datetime.now()} | {status} | {info}\n")
-write_log("INFO", "Script jalan")
-write_log("WA", f"Kirim ke {num}")
-write_log("ERROR", str(e))
+write_log("INFO", "Script selesai")
