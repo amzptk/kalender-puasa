@@ -35,8 +35,8 @@ hijri_month_start = {
 
 # ================= WARNA =================
 COLOR = {
-    "senin_kamis": "9",     # biru
-    "ayyamul_bidh": "10",   # hijau
+    "senin_kamis": "1",     # biru
+    "ayyamul_bidh": "2",   # hijau
     "arafah": "11",         # merah
     "asyura": "3",          # ungu
     "nisfu": "5"            # kuning
@@ -242,4 +242,8 @@ def clean_old_events():
                 pass
 
     print(f"🗑️ Dihapus: {deleted}")
+print("🚀 Update mulai...")
 
+clean_old_events()
+
+today = datetime.date.today()
