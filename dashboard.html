@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Ibadah</title>
+    <style>
+        body { font-family: Arial; background: #111; color: #0f0; padding: 20px; }
+        h1 { color: #0ff; }
+        .box { background: #222; padding: 10px; margin: 10px 0; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Dashboard Ibadah</h1>
+
+<div class="box">
+    <h3>Status</h3>
+    <p id="status">Loading...</p>
+</div>
+
+<div class="box">
+    <h3>Log Aktivitas</h3>
+    <pre id="log"></pre>
+</div>
+
+<script>
+fetch('log.txt')
+.then(res => res.text())
+.then(data => {
+    document.getElementById("log").innerText = data;
+    document.getElementById("status").innerText = "✅ Aktif";
+})
+.catch(() => {
+    document.getElementById("status").innerText = "❌ Error";
+});
+</script>
+
+</body>
+</html>
