@@ -39,3 +39,10 @@ jobs:
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script_sholat.py
+      - name: Commit log.txt
+        run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add log.txt
+          git commit -m "update log" || echo "no change"
+          git push
