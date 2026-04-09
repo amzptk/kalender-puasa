@@ -14,8 +14,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
+        - uses: actions/checkout@v3
+          with:
+            persist-credentials: true
+            
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -46,6 +48,6 @@ jobs:
         run: |
           git config --global user.name "bot"
           git config --global user.email "bot@github.com"
-          git add log.txt
+          git add -f log.txt
           git commit -m "update log" || echo "no change"
           git push
