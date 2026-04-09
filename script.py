@@ -14,6 +14,19 @@ def write_log(status, info):
         waktu = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"{waktu} | {status} | {info}\n")
 
+def send_error_alert(msg):
+    from twilio.rest import Client
+    client = Client(
+        os.getenv("TWILIO_SID"),
+        os.getenv("TWILIO_TOKEN")
+    )
+
+    client.messages.create(
+        from_='whatsapp:+14155238886',
+        body=f"🚨 ERROR SYSTEM\n{msg}",
+        to='whatsapp:+628XXXXXXXXXX'
+    )
+
 # ================= CONFIG =================
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 CALENDAR_ID = 'primary'
@@ -43,9 +56,8 @@ def safe_execute(func, max_retry=5):
         try:
             return func()
         except Exception as e:
-            print("⚠️ Error:", e)
             write_log("ERROR", str(e))
-            time.sleep((2 ** attempt) + random.random())
+            send_error_alert(str(e))  # 🔥 WA ALERT
     return None
 
 # ================= WA =================
