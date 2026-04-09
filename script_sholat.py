@@ -139,6 +139,6 @@ for name, t in jadwal.items():
     reminder = waktu - datetime.timedelta(minutes=10)
 
     # if abs((now - reminder).total_seconds()) < 300:
-        send_wa(format_message(name))
+    send_wa(format_message(name))
 
 print("✅ Done!")
