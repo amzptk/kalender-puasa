@@ -2,6 +2,7 @@ import datetime
 import os
 import requests
 import time
+import random
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -23,6 +24,21 @@ COLOR = {
     "asyura": "3",
     "nisfu": "5"
 }
+
+# ================= RETRY SYSTEM =================
+def safe_execute(func, max_retry=5):
+    for attempt in range(max_retry):
+        try:
+            return func()
+        except Exception as e:
+            print(f"⚠️ Error: {e}")
+
+            wait = (2 ** attempt) + random.uniform(0, 1)
+            print(f"⏳ Retry {attempt+1}/{max_retry} dalam {round(wait,2)} detik...")
+            time.sleep(wait)
+
+    print("❌ Gagal setelah retry")
+    return None
 
 # ================= DATA HIJRIAH =================
 hijri_month_start = {
@@ -60,10 +76,14 @@ def get_hijri_month(date):
 def create_event(date, title, color):
     uid = f"{title}-{date.isoformat()}"
 
-    existing = service.events().list(
+    existing = safe_execute(lambda: service.events().list(
         calendarId=CALENDAR_ID,
         privateExtendedProperty=f"uid={uid}"
-    ).execute()
+    ).execute())
+
+    if not existing:
+        print("⚠️ Skip (API error)")
+        return
 
     if existing.get('items'):
         return
@@ -76,40 +96,50 @@ def create_event(date, title, color):
         'extendedProperties': {'private': {'uid': uid}}
     }
 
-    service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-    time.sleep(0.1)
+    safe_execute(lambda: service.events().insert(
+        calendarId=CALENDAR_ID,
+        body=event
+    ).execute())
+
+    # delay random biar tidak kena limit
+    time.sleep(random.uniform(0.2, 0.4))
+
+# ================= CLEAN LEGACY =================
 def clean_legacy_events():
     print("🧹 Hapus event lama (Senin/Kamis)...")
 
     now = datetime.datetime.utcnow().isoformat() + 'Z'
 
-    events = service.events().list(
+    events = safe_execute(lambda: service.events().list(
         calendarId=CALENDAR_ID,
         timeMin=now,
         maxResults=2500,
         singleEvents=True
-    ).execute()
+    ).execute())
+
+    if not events:
+        return
 
     deleted = 0
 
     for event in events.get('items', []):
         title = event.get('summary', '')
 
-        # 🔥 hanya hapus yang lama
         if title == "Puasa Senin/Kamis":
-            try:
-                service.events().delete(
-                    calendarId=CALENDAR_ID,
-                    eventId=event['id']
-                ).execute()
-                deleted += 1
-            except:
-                pass
+            safe_execute(lambda: service.events().delete(
+                calendarId=CALENDAR_ID,
+                eventId=event['id']
+            ).execute())
+            deleted += 1
 
     print(f"🗑️ Dihapus legacy: {deleted}")
+clean_legacy_events()
 
 # ================= MAIN =================
 print("🚀 Update mulai...")
+
+# ⚠️ Aktifkan hanya 1x kalau mau bersihin
+# clean_legacy_events()
 
 today = datetime.date.today()
 
