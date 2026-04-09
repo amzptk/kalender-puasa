@@ -212,3 +212,36 @@ if events:
             mark_sent(key2)
 
 print("✅ Done!")
+print("🚀 Update mulai...")
+
+clean_old_events()   # 🔥 TAMBAH INI
+
+today = datetime.date.today()
+def clean_old_events():
+    print("🧹 Bersihkan event lama...")
+
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+
+    events = service.events().list(
+        calendarId=CALENDAR_ID,
+        timeMin=now,
+        maxResults=2500,
+        singleEvents=True
+    ).execute()
+
+    deleted = 0
+
+    for event in events.get('items', []):
+        summary = event.get('summary', '')
+
+        if "Puasa" in summary:
+            try:
+                service.events().delete(
+                    calendarId=CALENDAR_ID,
+                    eventId=event['id']
+                ).execute()
+                deleted += 1
+            except:
+                pass
+
+    print(f"🗑️ Dihapus: {deleted}")
