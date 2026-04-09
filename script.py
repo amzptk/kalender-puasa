@@ -133,7 +133,7 @@ def clean_legacy_events():
             deleted += 1
 
     print(f"🗑️ Dihapus legacy: {deleted}")
-clean_legacy_events()
+# clean_legacy_events()
 
 # ================= MAIN =================
 print("🚀 Update mulai...")
