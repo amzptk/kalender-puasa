@@ -4,20 +4,20 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
-  
+
 permissions:
-  contents: write   # 🔥 WAJIB
-  
+  contents: write
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        - uses: actions/checkout@v3
-          with:
-            persist-credentials: true
-            
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -44,6 +44,7 @@ jobs:
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
         run: python script_sholat.py
+
       - name: Commit log.txt
         run: |
           git config --global user.name "bot"
