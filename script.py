@@ -108,3 +108,4 @@ for i in range(60):
         create_event(date, "Nisfu Sya'ban", COLOR["nisfu"])
 
 print("✅ Done!")
+clean_old_events()
